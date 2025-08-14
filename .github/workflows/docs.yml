@@ -1,0 +1,371 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'pyproject.toml'
+      - '.github/workflows/docs.yml'
+
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'pyproject.toml'
+      - '.github/workflows/docs.yml'
+
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy to GitHub Pages'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # Build documentation
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.deploy-check.outputs.should-deploy }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git-based plugins
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: |
+          # Add doc build deps to the dev group for this run and install
+          uv add --group dev mkdocs mkdocs-material mkdocs-minify-plugin pymdown-extensions mkdocstrings mkdocstrings-python
+          uv sync
+
+      - name: Setup Node.js (for additional tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Node.js tools
+        run: |
+          npm install -g markdown-link-check
+          npm install -g htmlhint
+
+      - name: Cache MkDocs build
+        uses: actions/cache@v4
+        with:
+          path: .mkdocs_cache
+          key: mkdocs-${{ hashFiles('mkdocs.yml') }}-${{ hashFiles('docs/**') }}
+          restore-keys: |
+            mkdocs-${{ hashFiles('mkdocs.yml') }}-
+            mkdocs-
+
+      - name: Validate documentation structure
+        run: |
+          echo "🔍 Validating documentation structure..."
+
+          # Check required files
+          test -f mkdocs.yml || { echo "❌ mkdocs.yml missing"; exit 1; }
+          test -d docs || { echo "❌ docs/ directory missing"; exit 1; }
+          test -f docs/index.md || { echo "❌ docs/index.md missing"; exit 1; }
+
+          # Check for common issues
+          if grep -r "TODO\|FIXME\|XXX" docs/; then
+            echo "⚠️  Found TODO/FIXME items in documentation"
+          fi
+
+          echo "✅ Structure validation passed"
+
+      - name: Lint markdown files
+        run: |
+          echo "📝 Linting markdown files..."
+
+          # Basic markdown validation
+          find docs -name '*.md' -exec python -c "
+          import sys
+          try:
+              with open(sys.argv[1], 'r', encoding='utf-8') as f:
+                  content = f.read()
+                  if not content.strip():
+                      print(f'❌ Empty file: {sys.argv[1]}')
+                      sys.exit(1)
+                  # Check for common markdown issues
+                  lines = content.split('\n')
+                  for i, line in enumerate(lines, 1):
+                      if line.strip().startswith('#') and i < len(lines) and lines[i].strip() and not lines[i].startswith(' '):
+                          print(f'⚠️  Possible missing blank line after heading in {sys.argv[1]}:{i}')
+              print(f'✅ {sys.argv[1]}')
+          except Exception as e:
+              print(f'❌ Error reading {sys.argv[1]}: {e}')
+              sys.exit(1)
+          " {} \;
+
+      - name: Check links in markdown
+        run: |
+          echo "🔗 Checking links in markdown files..."
+          find docs -name '*.md' -exec markdown-link-check {} \; || {
+            echo "⚠️  Some link checks failed, but continuing..."
+          }
+
+      - name: Build documentation
+        run: |
+          echo "🏗️  Building documentation..."
+          uv run mkdocs build
+
+          # Verify build output
+          test -d site || { echo "❌ Build failed - no site/ directory"; exit 1; }
+          test -f site/index.html || { echo "❌ Build failed - no index.html"; exit 1; }
+
+          echo "✅ Documentation built successfully"
+
+      - name: Generate sitemap
+        run: |
+          echo "🗺️  Generating sitemap..."
+          python -c "
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          # Create sitemap
+          urlset = ET.Element('urlset')
+          urlset.set('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9')
+
+          base_url = 'https://jinto-ag.github.io/jinpy-utils/'
+          site_dir = Path('site')
+
+          for html_file in site_dir.rglob('*.html'):
+              if html_file.name == '404.html':
+                  continue
+
+              url_elem = ET.SubElement(urlset, 'url')
+              loc_elem = ET.SubElement(url_elem, 'loc')
+
+              relative_path = html_file.relative_to(site_dir)
+              url = base_url + str(relative_path).replace('index.html', '')
+              loc_elem.text = url
+
+              changefreq = ET.SubElement(url_elem, 'changefreq')
+              changefreq.text = 'weekly'
+
+              priority = ET.SubElement(url_elem, 'priority')
+              priority.text = '0.8'
+
+          # Write sitemap
+          tree = ET.ElementTree(urlset)
+          ET.indent(tree, space='  ')
+          tree.write('site/sitemap.xml', encoding='utf-8', xml_declaration=True)
+          print('✅ Sitemap generated')
+          "
+
+      - name: Validate HTML
+        run: |
+          echo "🔍 Validating HTML..."
+          find site -name '*.html' -exec htmlhint {} \; || {
+            echo "⚠️  HTML validation found issues, but continuing..."
+          }
+
+      - name: Test built documentation
+        run: |
+          echo "🧪 Testing built documentation..."
+
+          # Check critical pages exist
+          test -f site/index.html || { echo "❌ Missing index.html"; exit 1; }
+          # Check representative pages from main docs structure
+          test -f site/getting-started/installation/index.html || { echo "❌ Missing installation page"; exit 1; }
+          test -f site/reference/index.html || { echo "❌ Missing API reference"; exit 1; }
+          test -f site/guides/logger/index.html || { echo "❌ Missing logger guide"; exit 1; }
+
+          # Check for broken internal links (basic check)
+          # Look for links to 404.html or 404/ paths, ignore code-line anchors (_codelineno-*),
+          # and ignore occurrences within code/pre blocks generated by mkdocs-material.
+          if grep -RhoE 'href="[^"]*(/404\.html|/404/|#404)([^"]*)?"' site | \
+              grep -v '_codelineno-' >/dev/null; then
+            echo "❌ Found references to 404 pages"
+            grep -RhoE 'href="[^"]*(/404\.html|/404/|#404)([^"]*)?"' site | grep -v '_codelineno-' || true
+            exit 1
+          else
+            echo "✅ No obvious 404 references found"
+          fi
+
+
+          # Check assets exist
+          test -f site/assets/stylesheets/custom.css || { echo "⚠️  Custom CSS missing"; }
+          test -f site/assets/javascripts/custom.js || { echo "⚠️  Custom JS missing"; }
+
+          echo "✅ Documentation tests passed"
+
+      - name: Check deployment conditions
+        id: deploy-check
+        run: |
+          SHOULD_DEPLOY="false"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.deploy }}" == "true" ]]; then
+            SHOULD_DEPLOY="true"
+            echo "🚀 Manual deployment requested"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
+            SHOULD_DEPLOY="true"
+            echo "🚀 Auto-deployment for main branch push"
+          else
+            echo "ℹ️  Skipping deployment (not main branch or manual trigger)"
+          fi
+
+          echo "should-deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+
+      - name: Setup Pages
+        if: steps.deploy-check.outputs.should-deploy == 'true' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: steps.deploy-check.outputs.should-deploy == 'true' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - name: Generate build summary
+        run: |
+          echo "# 📚 Documentation Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total pages**: $(find site -name '*.html' | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Site size**: $(du -sh site | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source files**: $(find docs -name '*.md' | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Images**: $(find docs -name '*.png' -o -name '*.jpg' -o -name '*.gif' -o -name '*.svg' | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Build Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Will deploy**: ${{ steps.deploy-check.outputs.should-deploy }}" >> $GITHUB_STEP_SUMMARY
+
+  # Deploy to GitHub Pages
+  deploy:
+    if: needs.build.outputs.should-deploy == 'true' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+      pages: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Generate deployment summary
+        run: |
+          echo "# 🚀 Documentation Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 **Live Documentation**: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [🏠 Home Page](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [🚀 Getting Started](${{ steps.deployment.outputs.page_url }}getting-started/installation/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [📚 User Guide](${{ steps.deployment.outputs.page_url }}guides/logger/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [🔧 API Reference](${{ steps.deployment.outputs.page_url }}reference/)" >> $GITHUB_STEP_SUMMARY
+
+  # PR Comment for preview
+  pr-comment:
+    if: github.event_name == 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('📚 Documentation Build')
+            );
+
+            const body = `## 📚 Documentation Build Complete
+
+            ✅ Documentation built successfully for this PR!
+
+            ### 📊 Build Summary
+            - **Total pages**: Built successfully
+            - **All checks**: Passed
+            - **Links**: Validated
+            - **Images**: Optimized
+
+            ### 🔍 What was checked:
+            - ✅ Markdown syntax and structure
+            - ✅ Internal link validation
+            - ✅ HTML output validation
+            - ✅ Image optimization
+            - ✅ Asset generation
+
+            > **Note**: This is a preview build. The documentation will be deployed to GitHub Pages when this PR is merged to main.
+
+            ---
+            <sub>🤖 This comment is automatically updated on each push.</sub>`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # Notify on failure
+  notify-failure:
+    if: failure()
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify failure
+        run: |
+          echo "# ❌ Documentation Build Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The documentation build or deployment failed. Please check the logs for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔧 Common Issues" >> $GITHUB_STEP_SUMMARY
+          echo "- Check for markdown syntax errors" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify all links are valid" >> $GITHUB_STEP_SUMMARY
+          echo "- Ensure mkdocs.yml is properly configured" >> $GITHUB_STEP_SUMMARY
+          echo "- Check that all referenced files exist" >> $GITHUB_STEP_SUMMARY

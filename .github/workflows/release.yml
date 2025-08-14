@@ -1,0 +1,666 @@
+name: Release and Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+      - 'src/**'
+      - 'tests/**'
+      - 'README.md'
+      - 'LICENSE'
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        type: choice
+        options: ['auto', 'patch', 'minor', 'major', 'alpha', 'beta', 'rc', 'dev', 'post', 'stable']
+        default: 'auto'
+      custom_version:
+        description: 'Custom version (overrides bump type)'
+        type: string
+        required: false
+      force_release:
+        description: 'Force release even if no changes detected'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  PYTHONPATH: src
+
+jobs:
+  release:
+    name: Release and Publish
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    outputs:
+      should_release: ${{ steps.version-analysis.outputs.should_release }}
+      new_version: ${{ steps.bump-version.outputs.new_version }}
+      is_prerelease: ${{ steps.bump-version.outputs.is_prerelease }}
+      version_bump_branch: ${{ steps.create-version-branch.outputs.version_bump_branch }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Analyze commits and determine version bump
+        id: version-analysis
+        run: |
+          # Check for version override in commit messages
+          COMMIT_VERSION_OVERRIDE=""
+          COMMIT_BUMP_OVERRIDE=""
+
+          LATEST_COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          # Look for version patterns in commit message
+          if echo "$LATEST_COMMIT_MSG" | grep -qE '\[version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+.*\]'; then
+            COMMIT_VERSION_OVERRIDE=$(echo "$LATEST_COMMIT_MSG" | grep -oE '\[version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+.*\]' | sed 's/\[version:[[:space:]]*\(.*\)\]/\1/')
+            echo "📌 Found version override in commit: $COMMIT_VERSION_OVERRIDE"
+          elif echo "$LATEST_COMMIT_MSG" | grep -qE '\[bump:[[:space:]]*(major|minor|patch|alpha|beta|rc|dev|post|stable)\]'; then
+            COMMIT_BUMP_OVERRIDE=$(echo "$LATEST_COMMIT_MSG" | grep -oE '\[bump:[[:space:]]*(major|minor|patch|alpha|beta|rc|dev|post|stable)\]' | sed 's/\[bump:[[:space:]]*\(.*\)\]/\1/')
+            echo "📌 Found bump override in commit: $COMMIT_BUMP_OVERRIDE"
+          fi
+
+          # Get commits since last tag for analysis
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            COMMIT_RANGE="HEAD"
+            echo "No previous tags found, analyzing all commits"
+          else
+            COMMIT_RANGE="${LATEST_TAG}..HEAD"
+            echo "Analyzing commits since ${LATEST_TAG}"
+          fi
+
+          # Analyze conventional commits
+          COMMITS=$(git log --oneline --format="%s" $COMMIT_RANGE)
+
+          MAJOR_CHANGES=$(echo "$COMMITS" | grep -E "^(feat|fix|perf)(\(.+\))?!|^BREAKING CHANGE:" | wc -l)
+          MINOR_CHANGES=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:" | wc -l)
+          PATCH_CHANGES=$(echo "$COMMITS" | grep -E "^(fix|perf)(\(.+\))?:" | wc -l)
+          OTHER_CHANGES=$(echo "$COMMITS" | grep -E "^(refactor|style|docs|test|build|ci|chore)(\(.+\))?:" | wc -l)
+
+          # Determine suggested bump type
+          SUGGESTED_BUMP="none"
+          if [ "$MAJOR_CHANGES" -gt 0 ]; then
+            SUGGESTED_BUMP="major"
+          elif [ "$MINOR_CHANGES" -gt 0 ]; then
+            SUGGESTED_BUMP="minor"
+          elif [ "$PATCH_CHANGES" -gt 0 ]; then
+            SUGGESTED_BUMP="patch"
+          elif [ "$OTHER_CHANGES" -gt 0 ]; then
+            SUGGESTED_BUMP="patch"
+          fi
+
+          # Determine final bump type
+          FINAL_BUMP="$SUGGESTED_BUMP"
+          CUSTOM_VERSION=""
+
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            CUSTOM_VERSION="${{ github.event.inputs.custom_version }}"
+            FINAL_BUMP="custom"
+            echo "🎯 Using custom version: $CUSTOM_VERSION"
+          elif [ -n "$COMMIT_VERSION_OVERRIDE" ]; then
+            CUSTOM_VERSION="$COMMIT_VERSION_OVERRIDE"
+            FINAL_BUMP="custom"
+            echo "🎯 Using commit version override: $CUSTOM_VERSION"
+          elif [ -n "$COMMIT_BUMP_OVERRIDE" ]; then
+            FINAL_BUMP="$COMMIT_BUMP_OVERRIDE"
+            echo "🎯 Using commit bump override: $FINAL_BUMP"
+          elif [ "${{ github.event.inputs.version_bump }}" != "auto" ] && [ "${{ github.event.inputs.version_bump }}" != "" ]; then
+            FINAL_BUMP="${{ github.event.inputs.version_bump }}"
+            echo "🎯 Using workflow input: $FINAL_BUMP"
+          fi
+
+          # Check if we should proceed
+          SHOULD_RELEASE="false"
+          if [ "$FINAL_BUMP" != "none" ] || [ "${{ github.event.inputs.force_release }}" == "true" ]; then
+            SHOULD_RELEASE="true"
+          fi
+
+          echo "bump_type=$FINAL_BUMP" >> $GITHUB_OUTPUT
+          echo "custom_version=$CUSTOM_VERSION" >> $GITHUB_OUTPUT
+          echo "suggested_bump=$SUGGESTED_BUMP" >> $GITHUB_OUTPUT
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+
+          echo "🔍 Version Analysis Results:"
+          echo "  - Suggested bump: $SUGGESTED_BUMP"
+          echo "  - Final bump: $FINAL_BUMP"
+          echo "  - Custom version: $CUSTOM_VERSION"
+          echo "  - Should release: $SHOULD_RELEASE"
+
+      - name: Skip release check
+        if: steps.version-analysis.outputs.should_release == 'false'
+        run: |
+          echo "⏭️ No release needed - no conventional commits found since last release"
+          echo "💡 To force a release, use workflow_dispatch with force_release=true"
+          echo "💡 Or add [bump: patch|minor|major|alpha|beta|rc|dev|post|stable] to commit message"
+          echo "💡 Or add [version: x.y.z] to commit message for custom version"
+          exit 0
+
+      - name: Validate package
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          echo "🔍 Validating package before release..."
+          if [ ! -f "pyproject.toml" ]; then
+            echo "❌ pyproject.toml not found"
+            exit 1
+          fi
+          uv build --no-sources
+          echo "✅ Package validation passed"
+
+      - name: Bump version using native uv capabilities
+        if: steps.version-analysis.outputs.should_release == 'true'
+        id: bump-version
+        run: |
+          BUMP_TYPE="${{ steps.version-analysis.outputs.bump_type }}"
+          CUSTOM_VERSION="${{ steps.version-analysis.outputs.custom_version }}"
+          OLD_VERSION=$(uv version | awk '{print $2}')
+
+          echo "📦 Current version: $OLD_VERSION"
+          rm -rf dist/ build/ *.egg-info/
+
+          IS_PRERELEASE="false"
+
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "⏭️ No version bump needed"
+            exit 0
+          fi
+
+          # Handle version bumping using uv's native capabilities
+          if [ "$BUMP_TYPE" = "custom" ] && [ -n "$CUSTOM_VERSION" ]; then
+            echo "🎯 Setting custom version: $CUSTOM_VERSION"
+
+            # Check if custom version is pre-release
+            if echo "$CUSTOM_VERSION" | grep -qE "(a|alpha|b|beta|rc|dev|post)"; then
+              IS_PRERELEASE="true"
+            fi
+
+            # Use uv to set custom version
+            if ! uv version "$CUSTOM_VERSION"; then
+              echo "❌ Failed to set custom version $CUSTOM_VERSION"
+              exit 1
+            fi
+          else
+            echo "🚀 Bumping version using uv --bump $BUMP_TYPE..."
+
+            # Use uv's native bump capabilities
+            case $BUMP_TYPE in
+              major)
+                echo "🔼 Major version bump (breaking changes)"
+                uv version --bump major
+                ;;
+              minor)
+                echo "🔼 Minor version bump (new features)"
+                uv version --bump minor
+                ;;
+              patch)
+                echo "🔼 Patch version bump (bug fixes)"
+                uv version --bump patch
+                ;;
+              alpha)
+                echo "🚧 Alpha pre-release bump"
+                uv version --bump alpha
+                IS_PRERELEASE="true"
+                ;;
+              beta)
+                echo "🚧 Beta pre-release bump"
+                uv version --bump beta
+                IS_PRERELEASE="true"
+                ;;
+              rc)
+                echo "🚧 Release candidate bump"
+                uv version --bump rc
+                IS_PRERELEASE="true"
+                ;;
+              dev)
+                echo "🚧 Development pre-release bump"
+                uv version --bump dev
+                IS_PRERELEASE="true"
+                ;;
+              post)
+                echo "📦 Post-release bump"
+                uv version --bump post
+                ;;
+              stable)
+                echo "✅ Stable release bump"
+                uv version --bump stable
+                ;;
+              *)
+                echo "❌ Invalid bump type: $BUMP_TYPE"
+                echo "💡 Valid types: major, minor, patch, stable, alpha, beta, rc, post, dev"
+                exit 1
+                ;;
+            esac
+          fi
+
+          NEW_VERSION=$(uv version | awk '{print $2}')
+
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "❌ Version bump failed - version unchanged"
+            exit 1
+          fi
+
+          # Auto-detect pre-release based on version string
+          if echo "$NEW_VERSION" | grep -qE "(a|alpha|b|beta|rc|dev|post)[0-9]*$"; then
+            IS_PRERELEASE="true"
+          fi
+
+          echo "✅ Version bumped: $OLD_VERSION → $NEW_VERSION"
+          echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+      - name: Verify version bump with dry-run check
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          OLD_VERSION="${{ steps.bump-version.outputs.old_version }}"
+
+          echo "🔍 Verifying version bump results..."
+          echo "  - Previous: $OLD_VERSION"
+          echo "  - Current:  $NEW_VERSION"
+
+          # Verify the version was actually changed
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "❌ Version verification failed - no change detected"
+            exit 1
+          fi
+
+          # Show what the next bump would be (for verification)
+          echo "🔍 Next possible bumps from $NEW_VERSION:"
+          echo "  - patch: $(uv version --bump patch --dry-run | awk '{print $4}')"
+          echo "  - minor: $(uv version --bump minor --dry-run | awk '{print $4}')"
+          echo "  - major: $(uv version --bump major --dry-run | awk '{print $4}')"
+          if [ "${{ steps.bump-version.outputs.is_prerelease }}" != "true" ]; then
+            echo "  - alpha: $(uv version --bump alpha --dry-run | awk '{print $4}')"
+            echo "  - beta:  $(uv version --bump beta --dry-run | awk '{print $4}')"
+            echo "  - rc:    $(uv version --bump rc --dry-run | awk '{print $4}')"
+          fi
+
+          echo "✅ Version bump verification completed"
+
+      - name: Create version bump branch
+        if: steps.version-analysis.outputs.should_release == 'true'
+        id: create-version-branch
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          TIMESTAMP=$(date +%s)
+          VERSION_BUMP_BRANCH="release/version-bump-v${NEW_VERSION}-${TIMESTAMP}"
+
+          echo "🌿 Creating version bump branch: $VERSION_BUMP_BRANCH"
+          git checkout -b "$VERSION_BUMP_BRANCH"
+
+          echo "version_bump_branch=$VERSION_BUMP_BRANCH" >> $GITHUB_OUTPUT
+          echo "✅ Created version bump branch"
+
+      - name: Commit version bump to branch
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          OLD_VERSION="${{ steps.bump-version.outputs.old_version }}"
+          BUMP_TYPE="${{ steps.version-analysis.outputs.bump_type }}"
+          IS_PRERELEASE="${{ steps.bump-version.outputs.is_prerelease }}"
+
+          echo "💾 Committing version bump..."
+
+          if git diff --quiet pyproject.toml; then
+            echo "❌ No changes detected in pyproject.toml"
+            exit 1
+          fi
+
+          echo "📝 Changes made by uv version --bump:"
+          git diff pyproject.toml
+
+          git add pyproject.toml
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            COMMIT_MSG="chore(release): bump version to v$NEW_VERSION ($BUMP_TYPE pre-release)
+
+          - Bump version from $OLD_VERSION to $NEW_VERSION
+          - Release type: $BUMP_TYPE pre-release
+          - Generated by automated release workflow
+
+          [skip release]"
+          else
+            COMMIT_MSG="chore(release): bump version to v$NEW_VERSION
+
+          - Bump version from $OLD_VERSION to $NEW_VERSION
+          - Release type: $BUMP_TYPE
+          - Generated by automated release workflow
+
+          [skip release]"
+          fi
+
+          git commit -m "$COMMIT_MSG"
+          git push origin "${{ steps.create-version-branch.outputs.version_bump_branch }}"
+
+          echo "✅ Version bump committed and pushed"
+
+      - name: Create version bump PR with auto-merge
+        if: steps.version-analysis.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          IS_PRERELEASE="${{ steps.bump-version.outputs.is_prerelease }}"
+          VERSION_BUMP_BRANCH="${{ steps.create-version-branch.outputs.version_bump_branch }}"
+          BUMP_TYPE="${{ steps.version-analysis.outputs.bump_type }}"
+
+          echo "📋 Creating version bump PR..."
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PR_TITLE="chore(release): bump version to v$NEW_VERSION [skip release]"
+            RELEASE_TYPE="Pre-release"
+          else
+            PR_TITLE="chore(release): bump version to v$NEW_VERSION [skip release]"
+            RELEASE_TYPE="Stable Release"
+          fi
+
+          # Clean, professional PR body
+          PR_BODY="# Version Bump to v$NEW_VERSION
+
+          ## Version Information
+
+          | Field | Value |
+          |-------|-------|
+          | **Previous Version** | ${{ steps.bump-version.outputs.old_version }} |
+          | **New Version** | v$NEW_VERSION |
+          | **Bump Type** | $BUMP_TYPE |
+          | **Release Type** | $RELEASE_TYPE |
+
+          ## Changes
+
+          - Updates version in \`pyproject.toml\`
+          - Prepares codebase for release v$NEW_VERSION
+          - Auto-merge enabled for immediate processing
+
+          ## Post-Merge Actions
+
+          - Package will be built and published to PyPI
+          - GitHub release will be created
+          - Git tag will be applied
+
+          ---
+
+          *Automated version bump by release workflow*"
+
+          # Create PR first
+          gh pr create \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --base main \
+            --head "$VERSION_BUMP_BRANCH"
+
+          echo "✅ Version bump PR created"
+
+          # Wait a moment for PR to be fully created
+          sleep 3
+
+          # Get PR number for more reliable operations
+          PR_NUMBER=$(gh pr list --head "$VERSION_BUMP_BRANCH" --json number --jq '.[0].number')
+          echo "📋 PR Number: #$PR_NUMBER"
+
+          # Check if auto-merge is allowed in repository
+          echo "🔍 Checking repository auto-merge settings..."
+
+          # Try to enable auto-merge with better error handling
+          echo "🔄 Attempting to enable auto-merge..."
+          if gh pr merge "$PR_NUMBER" --auto --squash 2>/dev/null; then
+            echo "✅ Auto-merge enabled successfully"
+          else
+            echo "⚠️ Auto-merge failed, attempting alternative approach..."
+
+            # Alternative: Check if all status checks are passing and merge directly
+            echo "🔍 Checking PR status..."
+
+            # Wait for status checks to initialize
+            sleep 5
+
+            # Check if PR is mergeable
+            PR_STATUS=$(gh pr view "$PR_NUMBER" --json mergeable,mergeStateStatus --jq '.mergeable,.mergeStateStatus')
+            echo "📊 PR Status: $PR_STATUS"
+
+            # If PR is immediately mergeable (no required checks), merge it
+            if gh pr view "$PR_NUMBER" --json mergeable --jq '.mergeable' | grep -q "MERGEABLE"; then
+              echo "✅ PR is mergeable, proceeding with immediate merge"
+              gh pr merge "$PR_NUMBER" --squash --delete-branch
+              echo "✅ PR merged successfully"
+            else
+              echo "⏳ PR requires status checks, will wait for auto-merge or manual intervention"
+            fi
+          fi
+
+      - name: Wait for PR merge with improved logic
+        if: steps.version-analysis.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_BUMP_BRANCH="${{ steps.create-version-branch.outputs.version_bump_branch }}"
+
+          echo "⏳ Waiting for version bump PR to merge..."
+
+          # Get PR number
+          PR_NUMBER=$(gh pr list --head "$VERSION_BUMP_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "❌ Could not find PR for branch $VERSION_BUMP_BRANCH"
+            exit 1
+          fi
+
+          echo "🔍 Monitoring PR #$PR_NUMBER"
+
+          # Reduced wait time with more frequent checks
+          for i in {1..30}; do
+            PR_STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state' 2>/dev/null)
+
+            case $PR_STATE in
+              "MERGED")
+                echo "✅ PR #$PR_NUMBER merged successfully"
+                break
+                ;;
+              "CLOSED")
+                echo "❌ PR #$PR_NUMBER was closed without merging"
+                exit 1
+                ;;
+              "OPEN")
+                # Check if PR is auto-mergeable and try to help it along
+                MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable --jq '.mergeable' 2>/dev/null)
+
+                if [ "$MERGEABLE" = "MERGEABLE" ] && [ $i -gt 5 ]; then
+                  echo "🔄 PR is mergeable but not auto-merging, attempting manual merge..."
+                  if gh pr merge "$PR_NUMBER" --squash --delete-branch 2>/dev/null; then
+                    echo "✅ Successfully merged PR manually"
+                    break
+                  fi
+                fi
+
+                echo "⏳ PR still open, waiting... (attempt $i/30)"
+                ;;
+              *)
+                echo "⚠️ Unknown PR state: $PR_STATE"
+                ;;
+            esac
+
+            sleep 6  # Reduced from 10 seconds to 6 seconds
+          done
+
+          # Final check
+          FINAL_STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state' 2>/dev/null)
+          if [ "$FINAL_STATE" != "MERGED" ]; then
+            echo "❌ Timeout: PR not merged after 3 minutes"
+            echo "💡 Please check repository settings for auto-merge requirements"
+            exit 1
+          fi
+
+      - name: Checkout updated main and verify version
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          echo "🔄 Checking out updated main branch..."
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+          # Verify version was updated correctly
+          CURRENT_VERSION=$(uv version | awk '{print $2}')
+          EXPECTED_VERSION="${{ steps.bump-version.outputs.new_version }}"
+
+          if [ "$CURRENT_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "❌ Version mismatch after PR merge!"
+            echo "   Expected: $EXPECTED_VERSION"
+            echo "   Current:  $CURRENT_VERSION"
+            exit 1
+          fi
+
+          echo "✅ Main branch updated with version: $CURRENT_VERSION"
+
+      - name: Build package
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          echo "🔨 Building package..."
+          uv build --no-sources
+
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist/)" ]; then
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+          echo "✅ Build completed successfully"
+          ls -la dist/
+
+      - name: Publish to PyPI
+        if: steps.version-analysis.outputs.should_release == 'true'
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          echo "🚀 Publishing v$NEW_VERSION to PyPI..."
+
+          if uv publish; then
+            echo "🎉 Published using trusted publishing"
+          elif [ -n "$PYPI_TOKEN" ]; then
+            echo "🔑 Fallback to token authentication..."
+            export UV_PUBLISH_TOKEN="$PYPI_TOKEN"
+            uv publish
+            echo "🎉 Published using token authentication"
+          else
+            echo "❌ Publication failed"
+            exit 1
+          fi
+
+      - name: Create git tag
+        if: steps.version-analysis.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          TAG_NAME="v$NEW_VERSION"
+
+          echo "🏷️ Creating git tag $TAG_NAME..."
+
+          git tag -d "$TAG_NAME" 2>/dev/null || true
+          git push origin --delete "$TAG_NAME" 2>/dev/null || true
+
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+
+          echo "✅ Git tag $TAG_NAME created and pushed"
+
+      - name: Create GitHub release
+        if: steps.version-analysis.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          IS_PRERELEASE="${{ steps.bump-version.outputs.is_prerelease }}"
+          BUMP_TYPE="${{ steps.version-analysis.outputs.bump_type }}"
+
+          echo "🎉 Creating GitHub release v$NEW_VERSION..."
+
+          # Professional, concise release notes
+          echo "## What's Changed
+
+          - Version updated to v$NEW_VERSION
+          - Built and published to PyPI
+
+          ## Version Information
+
+          - **Type**: $BUMP_TYPE
+          - **Previous**: ${{ steps.bump-version.outputs.old_version }}
+          - **Current**: v$NEW_VERSION
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo 'HEAD~10')...v$NEW_VERSION" > RELEASE_NOTES.md
+
+          PRERELEASE_FLAG=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "v$NEW_VERSION" \
+            --title "Release v$NEW_VERSION" \
+            --notes-file "RELEASE_NOTES.md" \
+            --target main \
+            $PRERELEASE_FLAG
+
+          echo "✅ GitHub release created"
+
+      - name: Cleanup and summary
+        if: steps.version-analysis.outputs.should_release == 'true' && always()
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          OLD_VERSION="${{ steps.bump-version.outputs.old_version }}"
+          BUMP_TYPE="${{ steps.version-analysis.outputs.bump_type }}"
+          IS_PRERELEASE="${{ steps.bump-version.outputs.is_prerelease }}"
+          VERSION_BUMP_BRANCH="${{ steps.create-version-branch.outputs.version_bump_branch }}"
+
+          # Cleanup version bump branch
+          if [ -n "$VERSION_BUMP_BRANCH" ]; then
+            echo "🧹 Cleaning up version bump branch"
+            git push origin --delete "$VERSION_BUMP_BRANCH" 2>/dev/null || true
+          fi
+
+          echo "# 🎉 Release Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Version Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous**: $OLD_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Current**: v$NEW_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: $BUMP_TYPE" >> $GITHUB_STEP_SUMMARY
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            echo "- **Stage**: Pre-release" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Stage**: Stable" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Completed Actions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Version updated in pyproject.toml" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Package built and published to PyPI" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Git tag created" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ GitHub release created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Usage Examples" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: major]\` - Breaking changes (1.0.0 → 2.0.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: minor]\` - New features (1.0.0 → 1.1.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: patch]\` - Bug fixes (1.0.0 → 1.0.1)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: alpha]\` - Alpha pre-release (1.0.0 → 1.0.1a1)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: beta]\` - Beta pre-release (1.0.0 → 1.0.1b1)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[bump: rc]\` - Release candidate (1.0.0 → 1.0.1rc1)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`[version: 2.0.0]\` - Custom version" >> $GITHUB_STEP_SUMMARY

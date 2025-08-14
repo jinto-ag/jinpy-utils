@@ -1,0 +1,35 @@
+name: Pre-commit autoupdate
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'  # Mondays 05:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  autoupdate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install
+      - name: Run pre-commit autoupdate
+        run: |
+          uvx pre-commit autoupdate
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .pre-commit-config.yaml
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "chore(pre-commit): autoupdate hooks"
+            gh pr create --title "chore(pre-commit): autoupdate hooks" --body "Automated weekly pre-commit hook updates." || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

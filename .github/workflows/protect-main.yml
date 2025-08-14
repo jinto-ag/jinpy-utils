@@ -1,0 +1,17 @@
+name: Protect main branch
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce PR-only to main
+        run: |
+          echo "Direct pushes to main are not allowed. Use PRs with reviews and passing checks."

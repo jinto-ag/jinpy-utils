@@ -1,0 +1,211 @@
+# Site information
+site_name: jinpy-utils
+site_description: A collection of minimal, type-safe Python utilities for Caching, Logging, Settings, and ORM with modern Python practices
+site_url: https://jinto-ag.github.io/jinpy-utils
+site_author: Jinto A G
+copyright: Copyright &copy; 2025 Jinto A G
+
+# Repository information
+repo_name: jinto-ag/jinpy-utils
+repo_url: https://github.com/jinto-ag/jinpy-utils
+edit_uri: edit/main/docs/
+
+# Configuration
+theme:
+  name: material
+  language: en
+
+  # Color scheme
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+  # Fonts
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  # Features
+  features:
+    # Navigation
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+
+    # Search
+    - search.suggest
+    - search.highlight
+
+    # Content
+    - content.code.copy
+
+# Plugins
+plugins:
+  # Built-in plugins
+  - search:
+      separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+  # Third-party plugins
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            # Comprehensive API display
+            show_source: true
+            show_signature_annotations: true
+            separate_signature: true
+            docstring_style: google
+
+            # Show all methods and attributes
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_root_full_path: false
+            show_root_members_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+
+            # Include private/protected members
+            show_bases: true
+            show_submodules: true
+            show_inheritance_diagram: false
+
+            # Method display options
+            show_signature: true
+            signature_crossrefs: true
+
+            # Member filtering - show comprehensive info
+            members:
+              - __init__
+              - __new__
+              - __call__
+              - __str__
+              - __repr__
+              - __enter__
+              - __exit__
+              - __iter__
+              - __next__
+              - __len__
+              - __getitem__
+              - __setitem__
+              - __delitem__
+              - __contains__
+
+            # Docstring options
+            docstring_section_style: table
+            docstring_options:
+              ignore_init_summary: false
+              trim_doctest_flags: true
+
+            # Parameter display
+            show_labels: true
+            group_by_category: true
+            heading_level: 2
+
+            # Advanced options
+            show_if_no_docstring: true
+            annotations_path: brief
+            line_length: 80
+
+            # Custom member ordering
+            members_order: source
+
+            # Show comprehensive type information
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+# Extensions
+markdown_extensions:
+  # Built-in extensions
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+  # PyMdown Extensions
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+# Extra configuration
+extra:
+  # Social links
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jinto-ag/jinpy-utils
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/jinpy-utils/
+
+# Extra CSS and JavaScript
+extra_css:
+  - assets/stylesheets/custom.css
+
+extra_javascript:
+  - assets/javascripts/custom.js
+
+# Navigation structure
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Logger: guides/logger.md
+  - API Reference:
+      - Overview: reference/index.md
+      - Logger:
+          - Core: reference/logger/core.md
+          - Backends: reference/logger/backends.md
+          - Configuration: reference/logger/config.md
+          - Exceptions: reference/logger/exceptions.md
+      - Base:
+          - Exceptions: reference/base/exceptions.md
+          - Registry: reference/base/registry.md
+          - Models: reference/base/models.md
+      - Utils:
+          - Time: reference/utils/time.md
+  - Project:
+      - Changelog: changelog.md
+      - Architecture Decisions: decisions/README.md
+  - Development:
+      - Documentation: development/documentation.md
+      - API Documentation Standards: development/api-documentation-standards.md
+
+# Validation
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn

@@ -1,0 +1,265 @@
+[project]
+name = "jinpy-utils"
+version = "0.1.0a0"
+description = "jinpy-utils is a collection of minimal, type-safe Python utilities for Caching, Logging, Settings, and ORM. It follows modern Python practices (PEP 8, mypy, Ruff) and maintains high test coverage."
+requires-python = ">=3.12.10"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Jinto A G", email = "project.jintoag@gmail.com" }]
+dependencies = [
+    "aiofiles>=24.1.0",
+    "aiohttp>=3.12.15",
+    "alembic>=1.16.4",
+    "cachetools>=6.1.0",
+    "pydantic[email]>=2.11.7",
+    "python-dotenv>=1.1.1",
+    "sqlmodel>=0.0.24",
+    "structlog>=25.4.0",
+    "websockets>=15.0.1",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+
+keywords = [
+    "python",
+    "utilities",
+    "caching",
+    "logging",
+    "settings",
+    "orm",
+    "asyncio",
+]
+
+[project.urls]
+Homepage = "https://github.com/jinto-ag/jinpy-utils"
+Repository = "https://github.com/jinto-ag/jinpy-utils"
+Issues = "https://github.com/jinto-ag/jinpy-utils/issues"
+License = "https://github.com/jinto-ag/jinpy-utils/blob/main/LICENSE"
+
+[tool.mkdocs]
+# placeholder to signal docs tooling; mkdocs reads mkdocs.yml
+
+[build-system]
+requires = ["uv_build>=0.8.9,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = true
+default-groups = ["dev"]
+constraint-dependencies = []
+override-dependencies = []
+environments = []
+
+[tool.uv.sources]
+jinpy_utils = { path = "src/jinpy_utils" }
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "jinpy_utils"
+source-include = [
+    "src/jinpy_utils/**",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+source-exclude = ["tests/**", "__pycache__/**", "*.pyc"]
+wheel-exclude = ["tests/**", "docs/**"]
+
+# Versioning and release automation (single source of truth: pyproject version)
+# Using uv for version management - removed conflicting semantic_release and commitizen
+# These tools were causing version synchronization issues with uv build
+
+[dependency-groups]
+dev = [
+    "aioresponses>=0.7.8",
+    "bandit>=1.8.6",
+    "black>=25.1.0",
+    "coverage>=7.10.2",
+    "flake8>=7.3.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.16",
+    "mkdocstrings[python]>=0.30.0",
+
+    "mypy>=1.17.1",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-html>=4.1.1",
+    "ruff>=0.6.9",
+    "safety>=3.2.9",
+    "types-aiofiles>=24.1.0.20250809",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+lint.select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "ARG001",
+    "C901",
+    "SIM",
+    "TID",
+    "Q",
+    "PL",
+    "PT",
+    "TCH",
+    "RUF",
+]
+lint.ignore = ["E501", "B008", "C901", "W191"]
+lint.per-file-ignores = { "tests/*" = [
+    "E501",
+    "PLR2004",
+    "PLC0415",
+    "SIM117",
+    "SIM105",
+    "PT011",
+    "F401"
+] }
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["jinpy_utils"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--cov=jinpy_utils",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+    "-W",
+    "ignore::RuntimeWarning:asyncio",
+    "-W",
+    "ignore::RuntimeWarning:unittest.mock",
+    "-W",
+    "ignore::RuntimeWarning:coroutine",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "asyncio: marks tests as asynchronous",
+]
+
+[tool.coverage.run]
+source = ["jinpy_utils"]
+branch = true
+omit = ["tests/*", "*/migrations/*", "*/venv/*", "*/.venv/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*(Protocol):",
+    "@(abc.)?abstractmethod",
+]
+ignore_errors = true
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist"]
+tests = ["B201", "B301"]
+skips = ["B101", "B601"]

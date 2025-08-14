@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an idea to improve jinpy-utils
+labels: [enhancement]
+body:
+  - type: input
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this feature solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like. Provide examples or pseudo-code if helpful.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any alternative solutions you've considered.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues
+          required: true
