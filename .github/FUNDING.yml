@@ -1,15 +1,14 @@
-# These are supported funding model platforms
+# .github/FUNDING.yml
 
-github: [] # Replace with up to 4 GitHub Sponsors-enabled usernames e.g., [user1, user2]
-patreon: # Replace with a single Patreon username
-open_collective: # Replace with a single Open Collective username
-ko_fi: # Replace with a single Ko-fi username
-tidelift: # Replace with a single Tidelift platform-name/package-name e.g., npm/babel
-community_bridge: # Replace with a single Community Bridge project-name e.g., cloud-foundry
-liberapay: # Replace with a single Liberapay username
-issuehunt: # Replace with a single IssueHunt username
-lfx_crowdfunding: # Replace with a single LFX Crowdfunding project-name e.g., cloud-foundry
-polar: # Replace with a single Polar username
-buy_me_a_coffee: # Replace with a single Buy Me a Coffee username
-thanks_dev: # Replace with a single thanks.dev username
-custom: # Replace with up to 4 custom sponsorship URLs e.g., ['link1', 'link2']
+github: [jinto-ag] # Your GitHub username for GitHub Sponsors
+patreon: # your-patreon-username (if you create one)
+open_collective: # your-project-name (good for community projects)
+ko_fi: jinto_ag # Replace with your Ko-fi username
+tidelift: # pypi/jinpy-utils (if you join Tidelift)
+community_bridge: # Leave empty unless you have a Linux Foundation project
+liberapay: jinto-ag # Your Liberapay username
+issuehunt: # Leave empty unless you want bug bounties
+lfx_crowdfunding: # Leave empty unless you have a Linux Foundation project
+polar: "jinto-ag" # New platform, leave empty for now
+buy_me_a_coffee: jintoag # Your Buy Me a Coffee username
+thanks_dev: # Leave empty unless you use this platform
