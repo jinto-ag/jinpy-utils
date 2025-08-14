@@ -33,7 +33,7 @@ jobs:
         run: uv run pytest
       - name: Upload coverage to codecov
         if: success()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
