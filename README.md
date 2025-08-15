@@ -5,12 +5,15 @@
 ![GitHub Release (latest by date including pre-releases)](https://img.shields.io/github/v/release/jinto-ag/jinpy-utils?include_prereleases&display_name=tag&label=github)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)
+[![Docs](https://img.shields.io/badge/docs-website-blue)](https://jinto-ag.github.io/jinpy-utils/)
 
 > Status: dev (dev-releases). Latest version badges above are dynamic.
 
-Minimal, type-safe utilities for **Caching**, **Logging**, **Settings**, and **ORM**. Built with modern Python practices (PEP 8, mypy, ruff) and high test coverage. This is an early release; APIs may evolve.
+Minimal, type-safe utilities for **Caching**, **Logging**, **Settings**, and **ORM**. Built with modern Python practices (PEP 8, mypy, ruff) and high test coverage.
 
-📚 Docs: See the documentation in [docs/](https://github.com/jinto-ag/jinpy-utils/tree/main/docs) (start with [overview.md](docs/overview.md)).
+> Caution: This library is under active construction. Public APIs may change without notice until v1.0.0.
+
+📚 Documentation: Visit the site at [jinto-ag.github.io/jinpy-utils](https://jinto-ag.github.io/jinpy-utils/). Source for docs lives in [docs/](https://github.com/jinto-ag/jinpy-utils/tree/main/docs).
 
 ## Features
 
@@ -125,7 +128,7 @@ jinpy-utils/
 │       ├── __init__.py
 │       └── py.typed         # Type information marker
 ├── tests/              # Test suite
-├── docs/               # Documentation (coming soon)
+├── docs/               # Documentation (MkDocs Material site)
 ├── pyproject.toml      # Project configuration
 ├── README.md           # This file
 └── .pre-commit-config.yaml  # Pre-commit configuration
