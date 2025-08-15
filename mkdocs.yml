@@ -184,6 +184,7 @@ nav:
       - Configuration: getting-started/configuration.md
   - User Guide:
       - Logger: guides/logger.md
+      - Cache: guides/cache.md
   - API Reference:
       - Overview: reference/index.md
       - Logger:
@@ -191,6 +192,11 @@ nav:
           - Backends: reference/logger/backends.md
           - Configuration: reference/logger/config.md
           - Exceptions: reference/logger/exceptions.md
+      - Cache:
+          - Core: reference/cache/core.md
+          - Backends: reference/cache/backends.md
+          - Configuration: reference/cache/config.md
+          - Exceptions: reference/cache/exceptions.md
       - Base:
           - Exceptions: reference/base/exceptions.md
           - Registry: reference/base/registry.md
