@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import pickle
 import time
-from collections.abc import Callable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SerializerType = Literal["json", "pickle", "str", "bytes"]
 
@@ -80,7 +82,7 @@ def default_serializer(
     if kind == "bytes":
 
         def ser(obj: Any) -> bytes:
-            if isinstance(obj, (bytes, bytearray, memoryview)):
+            if isinstance(obj, (bytes | bytearray | memoryview)):
                 return bytes(obj)
             raise TypeError("Expected bytes-like value")
 

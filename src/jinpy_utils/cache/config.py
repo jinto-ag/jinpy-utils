@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .enums import CacheBackendType
+from jinpy_utils.cache.enums import CacheBackendType
 
 
 class BaseCacheBackendConfig(BaseModel):

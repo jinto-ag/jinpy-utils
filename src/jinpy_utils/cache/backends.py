@@ -2,28 +2,34 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Callable, Mapping
-from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import redis.asyncio as aioredis
 
-from .config import FileCacheConfig, MemoryCacheConfig, RedisCacheConfig
-from .enums import CacheBackendType, CacheOperation
-from .exceptions import (
+from jinpy_utils.cache.config import (
+    FileCacheConfig,
+    MemoryCacheConfig,
+    RedisCacheConfig,
+)
+from jinpy_utils.cache.enums import CacheBackendType, CacheOperation
+from jinpy_utils.cache.exceptions import (
     CacheBackendError,
     CacheConnectionError,
     CacheException,
     CacheKeyError,
     CacheSerializationError,
 )
-from .interfaces import AsyncCacheInterface, CacheInterface
-from .utils import (
+from jinpy_utils.cache.interfaces import AsyncCacheInterface, CacheInterface
+from jinpy_utils.cache.utils import (
     compute_expiry,
     default_serializer,
     normalize_key,
     remaining_ttl,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine, Mapping
+    from pathlib import Path
 
 
 class BaseBackend(CacheInterface, AsyncCacheInterface):
@@ -95,16 +101,16 @@ class MemoryCacheBackend(BaseBackend):
         self._lock = asyncio.Lock() if config.thread_safe else None
         self._max_entries = config.max_entries
 
-    async def _with_lock(self, coro):
+    async def _with_lock(self, coro: Coroutine) -> Awaitable[Coroutine]:
         if self._lock is None:
-            return await coro
+            return cast("Awaitable", await coro)
         async with self._lock:
-            return await coro
+            return cast("Awaitable", await coro)
 
     async def aget(self, key: str) -> Any | None:
         k = normalize_key(key)
 
-        async def _get():
+        async def _get() -> Any | None:
             entry = self._store.get(k)
             if not entry:
                 return None
@@ -128,7 +134,7 @@ class MemoryCacheBackend(BaseBackend):
         k = normalize_key(key)
         expiry = compute_expiry(ttl if ttl is not None else self._default_ttl)
 
-        async def _set():
+        async def _set() -> None:
             try:
                 data = self._ser(value)
             except Exception as e:
@@ -149,7 +155,7 @@ class MemoryCacheBackend(BaseBackend):
     async def adelete(self, key: str) -> None:
         k = normalize_key(key)
 
-        async def _del():
+        async def _del() -> None:
             self._store.pop(k, None)
 
         await self._with_lock(_del())
@@ -157,7 +163,7 @@ class MemoryCacheBackend(BaseBackend):
     async def aexists(self, key: str) -> bool:
         k = normalize_key(key)
 
-        async def _exists():
+        async def _exists() -> bool:
             entry = self._store.get(k)
             if not entry:
                 return False
@@ -167,16 +173,16 @@ class MemoryCacheBackend(BaseBackend):
                 return False
             return True
 
-        return await self._with_lock(_exists())
+        return cast("bool", await self._with_lock(_exists()))
 
     async def aclear(self) -> None:
-        async def _clear():
+        async def _clear() -> None:
             self._store.clear()
 
         await self._with_lock(_clear())
 
     async def aget_many(self, keys: list[str]) -> dict[str, Any | None]:
-        async def _get_many():
+        async def _get_many() -> dict[str, Any | None]:
             result: dict[str, Any | None] = {}
             for key in keys:
                 k = normalize_key(key)
@@ -200,12 +206,12 @@ class MemoryCacheBackend(BaseBackend):
                     ) from e
             return result
 
-        return await self._with_lock(_get_many())
+        return cast("dict[str, Any | None]", await self._with_lock(_get_many()))
 
     async def aset_many(
         self, items: Mapping[str, Any], ttl: float | None = None
     ) -> None:
-        async def _set_many():
+        async def _set_many() -> None:
             expiry_default = compute_expiry(
                 ttl if ttl is not None else self._default_ttl
             )
@@ -226,7 +232,7 @@ class MemoryCacheBackend(BaseBackend):
                 except Exception as e:
                     raise CacheSerializationError(
                         message=f"Serialization failed: {e}",
-                        cache_key=nk,
+                        cache_key=k,
                         backend_name=self.name,
                         operation=CacheOperation.SET,
                     ) from e
@@ -238,7 +244,7 @@ class MemoryCacheBackend(BaseBackend):
         await self._with_lock(_set_many())
 
     async def adelete_many(self, keys: list[str]) -> None:
-        async def _del_many():
+        async def _del_many() -> None:
             for k in keys:
                 nk = normalize_key(k)
                 self._store.pop(nk, None)
@@ -274,19 +280,19 @@ class MemoryCacheBackend(BaseBackend):
     async def attl(self, key: str) -> float | None:
         k = normalize_key(key)
 
-        async def _ttl():
+        async def _ttl() -> float | None:
             entry = self._store.get(k)
             if not entry:
                 return None
             _, expiry = entry
             return remaining_ttl(expiry)
 
-        return await self._with_lock(_ttl())
+        return cast("float | None", await self._with_lock(_ttl()))
 
     async def atouch(self, key: str, ttl: float) -> None:
         k = normalize_key(key)
 
-        async def _touch():
+        async def _touch() -> None:
             entry = self._store.get(k)
             if not entry:
                 return
@@ -319,7 +325,7 @@ class RedisCacheBackend(BaseBackend):
         self._pool_size = config.pool_size
         self._connect_timeout = config.connect_timeout
         self._command_timeout = config.command_timeout
-        self._client: aioredis.Redis | None = None  # type: ignore
+        self._client: aioredis.Redis | None = None
 
     async def _client_or_connect(self) -> aioredis.Redis:
         if self._client is not None:
@@ -350,12 +356,8 @@ class RedisCacheBackend(BaseBackend):
             data = await cli.get(k)
             if data is None:
                 return None
-            if self._decode:
-                # decode_responses True means data is str -> encode before deserialize if needed
-                raw = data.encode("utf-8")
-            else:
-                raw = data
-            return self._de(raw)  # type: ignore[arg-type]
+            raw = data.encode("utf-8") if self._decode else data
+            return self._de(raw)
         except CacheException:
             raise
         except Exception as e:
@@ -376,10 +378,12 @@ class RedisCacheBackend(BaseBackend):
                 await cli.set(
                     k,
                     raw.decode("utf-8"),
-                    ex=ttl if ttl else self._default_ttl,
+                    ex=cast("None", ttl if ttl else self._default_ttl),
                 )
             else:
-                await cli.set(k, raw, ex=ttl if ttl else self._default_ttl)
+                await cli.set(
+                    k, raw, ex=cast("None", ttl if ttl else self._default_ttl)
+                )
         except Exception as e:
             raise CacheBackendError(
                 message=f"Redis SET failed: {e}",
@@ -443,7 +447,7 @@ class RedisCacheBackend(BaseBackend):
                     result[k] = None
                 else:
                     raw = v.encode("utf-8") if self._decode else v
-                    result[k] = self._de(raw)  # type: ignore[arg-type]
+                    result[k] = self._de(raw)
             return result
         except Exception as e:
             raise CacheBackendError(
@@ -465,10 +469,12 @@ class RedisCacheBackend(BaseBackend):
                     pipe.set(
                         nk,
                         raw.decode("utf-8"),
-                        ex=ttl if ttl else self._default_ttl,
+                        ex=cast("None", ttl if ttl else self._default_ttl),
                     )
                 else:
-                    pipe.set(nk, raw, ex=ttl if ttl else self._default_ttl)
+                    pipe.set(
+                        nk, raw, ex=cast("None", ttl if ttl else self._default_ttl)
+                    )
             await pipe.execute()
         except Exception as e:
             raise CacheBackendError(
@@ -580,7 +586,7 @@ class RedisCacheBackend(BaseBackend):
     async def aclose(self) -> None:
         if self._client is not None:
             try:
-                await self._client.aclose()  # type: ignore[attr-defined]
+                await self._client.aclose()
             finally:
                 self._client = None
 
@@ -615,11 +621,9 @@ class FileCacheBackend(BaseBackend):
                     except Exception:
                         expiry = None
                 if expiry is not None and remaining_ttl(expiry) == 0:
-                    try:
-                        p.unlink(missing_ok=True)
-                        ttl_bytes.unlink(missing_ok=True)
-                    finally:
-                        return None
+                    p.unlink(missing_ok=True)
+                    ttl_bytes.unlink(missing_ok=True)
+                    return None
                 return self._de(data)
             except Exception as e:
                 raise CacheBackendError(
@@ -689,11 +693,9 @@ class FileCacheBackend(BaseBackend):
                 except Exception:
                     expiry = None
             if expiry is not None and remaining_ttl(expiry) == 0:
-                try:
-                    p.unlink(missing_ok=True)
-                    ttl_file.unlink(missing_ok=True)
-                finally:
-                    return False
+                p.unlink(missing_ok=True)
+                ttl_file.unlink(missing_ok=True)
+                return False
             return True
 
     async def aclear(self) -> None:

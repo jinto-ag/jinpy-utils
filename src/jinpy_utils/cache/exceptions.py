@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from jinpy_utils.base.exceptions import JPYCacheError
-
-from .enums import CacheErrorType, CacheOperation
+from jinpy_utils.cache.enums import CacheErrorType, CacheOperation
 
 
 class CacheException(JPYCacheError):
     """Base cache exception with structured context."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         message: str,
         *,

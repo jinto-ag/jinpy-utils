@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import AsyncGenerator, Generator, Mapping
 from contextlib import asynccontextmanager, contextmanager, suppress
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .backends import BaseBackend, CacheBackendFactory
-from .config import CacheManagerConfig, MemoryCacheConfig
-from .exceptions import CacheConfigurationError
+from jinpy_utils.cache.backends import BaseBackend, CacheBackendFactory
+from jinpy_utils.cache.config import CacheManagerConfig, MemoryCacheConfig
+from jinpy_utils.cache.exceptions import CacheConfigurationError
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Generator, Mapping
 
 
 class CacheManager:
@@ -652,7 +654,7 @@ class Cache:
         await self._manager.aclose(backend=self._backend)
 
 
-# Convenience functions mirroring the logger’s public helpers
+# Convenience functions mirroring the logger's public helpers
 
 
 def get_cache(backend: str | None = None) -> Cache:
@@ -673,5 +675,5 @@ def get_cache_manager(
     mgr = CacheManager()
     if config is not None:
         # Reconfigure existing instance
-        mgr._reconfigure(config)  # type: ignore[attr-defined]
+        mgr._reconfigure(config)
     return mgr

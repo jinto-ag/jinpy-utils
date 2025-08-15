@@ -23,7 +23,6 @@ from jinpy_utils.cache.config import (
     MemoryCacheConfig,
     RedisCacheConfig,
 )
-from jinpy_utils.cache.enums import CacheBackendType
 from jinpy_utils.cache.exceptions import (
     CacheBackendError,
     CacheConnectionError,
@@ -93,7 +92,7 @@ class TestMemoryCacheBackend:
         await backend.aset_many({"a": 1, "b": 2})
         got = await backend.aget_many(["a", "b", "c"])
         assert got == {"a": 1, "b": 2, "c": None}
-        await backend.adelete_many(["a", "b"]) 
+        await backend.adelete_many(["a", "b"])
         assert await backend.aget("a") is None
         assert await backend.aget("b") is None
 
@@ -352,11 +351,11 @@ class TestRedisCacheBackend:
             with pytest.raises(CacheBackendError):
                 await be.aclear()
             with pytest.raises(CacheBackendError):
-                await be.aget_many(["a"]) 
+                await be.aget_many(["a"])
             with pytest.raises(CacheBackendError):
                 await be.aset_many({"a": 1})
             with pytest.raises(CacheBackendError):
-                await be.adelete_many(["a"]) 
+                await be.adelete_many(["a"])
             with pytest.raises(CacheBackendError):
                 await be.aincr("n")
             with pytest.raises(CacheBackendError):
@@ -376,10 +375,10 @@ class TestRedisCacheBackend:
         ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
+            be = RedisCacheBackend(
+                RedisCacheConfig(name="r", url="redis://localhost:6379/0")
+            )
             with pytest.raises(CacheConnectionError):
-                be = RedisCacheBackend(
-                    RedisCacheConfig(name="r", url="redis://localhost:6379/0")
-                )
                 await be.aget("k")
 
     @pytest.mark.asyncio
@@ -422,10 +421,10 @@ class TestBackendFactory:
                 RedisCacheConfig(name="r", url="redis://localhost:6379/0")
             )
             assert r is not None
+
+        class Dummy:  # type: ignore
+            def __init__(self) -> None:
+                self.name = "x"
+
         with pytest.raises(CacheBackendError):
-
-            class Dummy:  # type: ignore
-                def __init__(self) -> None:
-                    self.name = "x"
-
             CacheBackendFactory.create(Dummy())  # type: ignore[arg-type]

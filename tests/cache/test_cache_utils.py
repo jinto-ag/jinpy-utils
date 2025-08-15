@@ -1,7 +1,5 @@
 """Tests for jinpy_utils.cache.utils."""
 
-import time
-
 import pytest
 
 from jinpy_utils.cache.utils import (
@@ -30,7 +28,8 @@ class TestExpiry:
         assert remaining_ttl(compute_expiry(-5)) == 0.0
         ex = compute_expiry(0.05)
         assert ex is not None
-        assert remaining_ttl(ex) is None or remaining_ttl(ex) >= 0
+        remaining = remaining_ttl(ex)
+        assert remaining is None or remaining >= 0
 
 
 class TestDefaultSerializer:
