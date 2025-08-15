@@ -8,10 +8,10 @@
 
 ### What type of change is this?
 
-- [ ] 🚀 **Feature** - New functionality or enhancement  
+- [ ] 🚀 **Feature** - New functionality or enhancement
 - [ ] 🐛 **Fix** - Bug fix or correction
 - [ ] 📚 **Documentation** - Updates to docs, README, or comments
-- [ ] 🔧 **Chore** - Build, CI, dependencies, or maintenance  
+- [ ] 🔧 **Chore** - Build, CI, dependencies, or maintenance
 - [ ] 🎨 **Style** - Code style/formatting (no functional changes)
 - [ ] ♻️ **Refactor** - Code restructuring (no functional changes)
 - [ ] ⚡ **Performance** - Performance improvements
@@ -37,7 +37,7 @@
 ### How has this been tested?
 
 - [ ] **Unit tests** - New/updated tests pass
-- [ ] **Integration tests** - End-to-end functionality verified  
+- [ ] **Integration tests** - End-to-end functionality verified
 - [ ] **Manual testing** - Manually verified changes work as expected
 - [ ] **Regression testing** - Existing functionality unaffected
 
@@ -53,7 +53,7 @@
 
 - [ ] **Code comments** - Added/updated inline documentation
 - [ ] **API documentation** - Updated docstrings and type hints
-- [ ] **README** - Updated usage examples or installation instructions  
+- [ ] **README** - Updated usage examples or installation instructions
 - [ ] **CHANGELOG** - Added entry (if significant change)
 - [ ] **Migration guide** - Added if breaking changes (in `docs/`)
 
@@ -62,12 +62,12 @@
 ### Code Quality
 
 - [ ] **Linting** - `uv run ruff check .` passes
-- [ ] **Formatting** - `uv run ruff format .` applied  
+- [ ] **Formatting** - `uv run ruff format .` applied
 - [ ] **Type checking** - `uv run mypy .` passes
 - [ ] **Tests** - `uv run pytest` passes with good coverage
 - [ ] **Build** - `uv build` succeeds without errors
 
-### Git & Commits  
+### Git & Commits
 
 - [ ] **Conventional commits** - Commit messages follow [conventional format](https://www.conventionalcommits.org/)
 - [ ] **Atomic commits** - Each commit represents a single logical change
@@ -85,7 +85,7 @@
 
 ### What breaks?
 
-### Migration Path  
+### Migration Path
 
 ```python
 # Before (old way)
@@ -98,19 +98,19 @@
 ### Version Impact
 
 - [ ] This requires a **major version bump** (breaking changes)
-- [ ] This triggers a **minor version bump** (new features)  
+- [ ] This triggers a **minor version bump** (new features)
 - [ ] This triggers a **patch version bump** (bug fixes)
 
 ## 📷 Screenshots/Logs
 
 ### Before
 
-### After  
+### After
 
 ## 🔗 Related Issues & PRs
 
 - Fixes #
-- Closes #  
+- Closes #
 - Relates to #
 - Depends on #
 - Blocks #
@@ -129,7 +129,7 @@ Please pay special attention to:
 ## 📋 Deployment Notes
 
 - [ ] **Requires environment changes** - None / Database / Config / Dependencies
-- [ ] **Requires migration** - None / Data / API / Configuration  
+- [ ] **Requires migration** - None / Data / API / Configuration
 - [ ] **Release notes** - Added to release template
 - [ ] **Announcement needed** - Community / Blog / Social
 
@@ -139,7 +139,7 @@ Please pay special attention to:
 
 ### Performance Impact
 
-### Security Considerations  
+### Security Considerations
 
 ### Dependencies
 
@@ -148,6 +148,6 @@ Please pay special attention to:
 **For Maintainers:**
 
 - [ ] **Labels applied** - Added appropriate labels
-- [ ] **Milestone set** - Assigned to release milestone  
+- [ ] **Milestone set** - Assigned to release milestone
 - [ ] **Reviewers assigned** - Appropriate reviewers added
 - [ ] **Merge strategy** - Squash/Merge/Rebase decided
