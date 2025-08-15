@@ -1,4 +1,4 @@
-"""Common test fixtures for logger backend tests."""
+"""Common test fixtures for logger and cache tests."""
 
 # Ensure `src/` is on sys.path for local test runs (keep imports at top)
 import asyncio
@@ -6,6 +6,8 @@ import json
 import pathlib
 import sys
 import tempfile
+import types
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,14 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 
+# Cache imports (kept after sys.modules manipulation for redis asyncio stub)
+from jinpy_utils.cache.config import (  # type:ignore  # noqa: E402
+    CacheManagerConfig,
+    FileCacheConfig,
+    MemoryCacheConfig,
+    RedisCacheConfig,
+)
+from jinpy_utils.cache.enums import CacheBackendType  # type:ignore  # noqa: E402
 from jinpy_utils.logger.backends import LogEntry  # type:ignore  # noqa: E402
 from jinpy_utils.logger.config import (  # type:ignore  # noqa: E402
     ConsoleBackendConfig,
@@ -39,6 +49,35 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _stub_redis_asyncio_module() -> None:
+    """Provide a minimal stub for 'redis.asyncio' so cache backends import.
+
+    This avoids hard dependency on redis during test collection. Tests that
+    require real Redis should skip or mock at a lower level.
+    """
+    if "redis.asyncio" in sys.modules:
+        return
+
+    # Create a minimal module with a from_url factory returning a dummy client
+    redis_module = types.ModuleType("redis")
+    redis_asyncio = types.ModuleType("redis.asyncio")
+
+    class _DummyClient:
+        async def ping(self):
+            return True
+
+        async def close(self):
+            return None
+
+    def from_url(*_args, **_kwargs):  # type: ignore
+        return _DummyClient()
+
+    redis_asyncio.from_url = from_url  # type: ignore[attr-defined]
+    sys.modules["redis"] = redis_module
+    sys.modules["redis.asyncio"] = redis_asyncio
 
 
 @pytest.fixture
@@ -70,6 +109,60 @@ def sample_log_entries() -> list[LogEntry]:
         )
         entries.append(entry)
     return entries
+
+
+# =====================
+# Cache test fixtures
+# =====================
+
+
+@pytest.fixture
+def temp_cache_dir() -> Generator[Path, Any, Any]:
+    """Create a temporary directory for file cache backend."""
+    with tempfile.TemporaryDirectory() as d:
+        yield Path(d)
+
+
+@pytest.fixture
+def memory_cache_config() -> MemoryCacheConfig:
+    """In-memory cache backend configuration."""
+    return MemoryCacheConfig(name="mem", backend_type=CacheBackendType.MEMORY)
+
+
+@pytest.fixture
+def file_cache_config(temp_cache_dir: Path) -> FileCacheConfig:
+    """File cache backend configuration pointing to a temp dir."""
+    return FileCacheConfig(
+        name="files",
+        backend_type=CacheBackendType.FILE,
+        directory=temp_cache_dir,
+        file_extension=".bin",
+    )
+
+
+@pytest.fixture
+def redis_cache_config() -> RedisCacheConfig:
+    """Redis cache backend configuration (uses stubbed client)."""
+    return RedisCacheConfig(
+        name="redis",
+        backend_type=CacheBackendType.REDIS,
+        url="redis://localhost:6379/0",
+        decode_responses=False,
+    )
+
+
+@pytest.fixture
+def cache_manager_config_memory(
+    memory_cache_config: MemoryCacheConfig,
+) -> CacheManagerConfig:
+    """CacheManagerConfig with only memory backend."""
+    return CacheManagerConfig(backends=[memory_cache_config], default_backend="mem")
+
+
+@pytest.fixture
+def cache_manager_config_file(file_cache_config: FileCacheConfig) -> CacheManagerConfig:
+    """CacheManagerConfig with only file backend."""
+    return CacheManagerConfig(backends=[file_cache_config], default_backend="files")
 
 
 @pytest.fixture

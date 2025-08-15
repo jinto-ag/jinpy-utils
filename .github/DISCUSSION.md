@@ -25,7 +25,7 @@ Welcome to the **jinpy-utils** community! GitHub Discussions is our hub for coll
 - "How do I..." questions
 - Troubleshooting guidance
 
-### 💡 **Ideas** - Feature Requests & Brainstorming  
+### 💡 **Ideas** - Feature Requests & Brainstorming
 
 - New feature suggestions
 - API improvements
@@ -76,7 +76,7 @@ Welcome to the **jinpy-utils** community! GitHub Discussions is our hub for coll
 
 - 📖 **Documentation**: [Project README](../README.md)
 - 🐛 **Report Bugs**: [Create an Issue](https://github.com/jinto-ag/jinpy-utils/issues/new/choose)
-- 🤝 **Contributing**: [Contributing Guidelines](../CONTRIBUTING.md)  
+- 🤝 **Contributing**: [Contributing Guidelines](../CONTRIBUTING.md)
 - 🔒 **Security**: [Security Policy](../SECURITY.md)
 - 💖 **Support**: [Sponsor this project](https://github.com/sponsors/jinto-ag)
 
@@ -124,7 +124,7 @@ Examples, mockups, related issues
 We celebrate our community contributors! Regular helpers and valuable contributors may be recognized as:
 
 - 🌟 **Community Champions** - Regular helpers in discussions
-- 🔧 **Technical Advisors** - Expert guidance on complex topics  
+- 🔧 **Technical Advisors** - Expert guidance on complex topics
 - 📚 **Documentation Heroes** - Improve project documentation
 
 ## 🛡️ **Moderation & Safety**
@@ -139,7 +139,7 @@ We celebrate our community contributors! Regular helpers and valuable contributo
 If jinpy-utils helps your projects, consider:
 
 - ⭐ **Starring** the repository
-- 🗣️ **Sharing** with your network  
+- 🗣️ **Sharing** with your network
 - 💖 **Sponsoring** development: [GitHub Sponsors](https://github.com/sponsors/jinto-ag)
 - 🤝 **Contributing** code or documentation
 
