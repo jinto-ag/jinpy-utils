@@ -44,7 +44,9 @@ uv add jinpy-utils
 pip install jinpy-utils
 ```
 
-## Quick Start (Logging)
+## Quick Start
+
+### Logger
 
 ```python
 from jinpy_utils.logger.config import GlobalLoggerConfig, ConsoleBackendConfig
@@ -57,6 +59,84 @@ Logger.set_global_config(cfg)
 # 2) Get a logger and log
 log = Logger.get_logger("app")
 log.info("hello", {"env": "dev"})
+```
+
+#### Multiple backends
+
+```python
+from pathlib import Path
+from jinpy_utils.logger.config import (
+    GlobalLoggerConfig, LoggerConfig,
+    ConsoleBackendConfig, FileBackendConfig,
+)
+from jinpy_utils.logger.core import Logger
+
+cfg = GlobalLoggerConfig(
+    backends=[
+        ConsoleBackendConfig(name="console", level="DEBUG"),
+        FileBackendConfig(name="file", file_path=Path("logs/app.log"), level="INFO"),
+    ]
+)
+Logger.set_global_config(cfg)
+
+log = Logger.get_logger("app")
+log.info("Application started")
+```
+
+### Cache
+
+```python
+from jinpy_utils.cache import get_cache
+
+# Default in-memory cache
+cache = get_cache()
+cache.set("user:123", {"name": "Ada"}, ttl=60)
+print(cache.get("user:123"))  # {"name": "Ada"}
+```
+
+#### Multiple backends
+
+```python
+from pathlib import Path
+from jinpy_utils.cache import (
+    Cache, CacheManager, CacheManagerConfig,
+    MemoryCacheConfig, FileCacheConfig,
+)
+
+config = CacheManagerConfig(
+    default_backend="mem",
+    backends=[
+        MemoryCacheConfig(name="mem", default_ttl=120),
+        FileCacheConfig(name="disk", directory=Path(".cache")),
+    ],
+)
+
+# Initialize manager once
+CacheManager(config)
+
+# Use a specific backend
+file_cache = Cache(backend="disk")
+file_cache.set("report", {"ok": True})
+```
+
+#### Async Redis example
+
+```python
+import asyncio
+from jinpy_utils.cache import Cache, CacheManager, CacheManagerConfig, RedisCacheConfig
+
+cfg = CacheManagerConfig(
+    default_backend="redis",
+    backends=[RedisCacheConfig(name="redis", url="redis://localhost:6379/0")],
+)
+CacheManager(cfg)
+
+async def main():
+    cache = Cache(backend="redis")
+    await cache.aset("token", "abc", ttl=30)
+    print(await cache.aget("token"))
+
+asyncio.run(main())
 ```
 
 ## Core Dependencies
@@ -155,11 +235,11 @@ We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for 
 
 ## Roadmap (high-level)
 
-- [ ] Core caching implementations
-- [ ] Structured logging utilities
+- [x] Structured logging core and backends (Console, File)
+- [x] Core caching implementations (Memory, File, Redis)
 - [ ] Settings management system
 - [ ] ORM helpers and utilities
-- [ ] Comprehensive documentation
+- [ ] Comprehensive documentation site and guides (ongoing)
 - [ ] Performance benchmarks
 - [ ] Plugin system
 
