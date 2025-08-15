@@ -197,6 +197,9 @@ nav:
           - Backends: reference/cache/backends.md
           - Configuration: reference/cache/config.md
           - Exceptions: reference/cache/exceptions.md
+          - Enums: reference/cache/enums.md
+          - Interfaces: reference/cache/interfaces.md
+          - Utilities: reference/cache/utils.md
       - Base:
           - Exceptions: reference/base/exceptions.md
           - Registry: reference/base/registry.md
