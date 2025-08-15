@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 class CacheInterface(ABC):
@@ -26,22 +27,16 @@ class CacheInterface(ABC):
     def get_many(self, keys: list[str]) -> dict[str, Any | None]: ...
 
     @abstractmethod
-    def set_many(
-        self, items: Mapping[str, Any], ttl: float | None = None
-    ) -> None: ...  # noqa: E501
+    def set_many(self, items: Mapping[str, Any], ttl: float | None = None) -> None: ...
 
     @abstractmethod
     def delete_many(self, keys: list[str]) -> None: ...
 
     @abstractmethod
-    def incr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int: ...  # noqa: E501
+    def incr(self, key: str, amount: int = 1, ttl: float | None = None) -> int: ...
 
     @abstractmethod
-    def decr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int: ...  # noqa: E501
+    def decr(self, key: str, amount: int = 1, ttl: float | None = None) -> int: ...
 
     @abstractmethod
     def ttl(self, key: str) -> float | None: ...
@@ -63,9 +58,7 @@ class AsyncCacheInterface(ABC):
     async def aget(self, key: str) -> Any | None: ...
 
     @abstractmethod
-    async def aset(
-        self, key: str, value: Any, ttl: float | None = None
-    ) -> None: ...  # noqa: E501
+    async def aset(self, key: str, value: Any, ttl: float | None = None) -> None: ...
 
     @abstractmethod
     async def adelete(self, key: str) -> None: ...

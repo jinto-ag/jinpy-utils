@@ -11,17 +11,15 @@ Example:
     )
 """
 
-from typing import List
-
-from .backends import CacheBackendFactory
-from .config import (
+from jinpy_utils.cache.backends import CacheBackendFactory
+from jinpy_utils.cache.config import (
     BaseCacheBackendConfig,
     CacheManagerConfig,
     FileCacheConfig,
     MemoryCacheConfig,
     RedisCacheConfig,
 )
-from .core import (
+from jinpy_utils.cache.core import (
     AsyncCacheClient,
     Cache,
     CacheClient,
@@ -29,8 +27,8 @@ from .core import (
     get_cache,
     get_cache_manager,
 )
-from .enums import CacheBackendType, CacheErrorType, CacheOperation
-from .exceptions import (
+from jinpy_utils.cache.enums import CacheBackendType, CacheErrorType, CacheOperation
+from jinpy_utils.cache.exceptions import (
     CacheBackendError,
     CacheConfigurationError,
     CacheConnectionError,
@@ -39,9 +37,9 @@ from .exceptions import (
     CacheSerializationError,
     CacheTimeoutError,
 )
-from .interfaces import AsyncCacheInterface, CacheInterface
+from jinpy_utils.cache.interfaces import AsyncCacheInterface, CacheInterface
 
-__all__: List[str] = [
+__all__: list[str] = [
     # Facade and helpers
     "Cache",
     "get_cache",

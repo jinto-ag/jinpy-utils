@@ -32,7 +32,9 @@ class TestCacheManager:
             assert cache.get("k") == 1
 
     def test_invalid_default_backend_name_raises(self) -> None:
-        cfg = CacheManagerConfig(backends=[MemoryCacheConfig(name="m")], default_backend="nope")
+        cfg = CacheManagerConfig(
+            backends=[MemoryCacheConfig(name="m")], default_backend="nope"
+        )
         with pytest.raises(CacheConfigurationError):
             _ = get_cache_manager(cfg)
 
@@ -51,7 +53,11 @@ class TestCacheManager:
 
 class TestCacheSyncAndAsyncAPI:
     def test_sync_api(self) -> None:
-        mgr = get_cache_manager(CacheManagerConfig(backends=[MemoryCacheConfig(name="m")] , default_backend="m"))
+        mgr = get_cache_manager(
+            CacheManagerConfig(
+                backends=[MemoryCacheConfig(name="m")], default_backend="m"
+            )
+        )
         c = Cache(manager=mgr)
         c.set("a", {"b": 1})
         assert c.get("a") == {"b": 1}
@@ -73,7 +79,11 @@ class TestCacheSyncAndAsyncAPI:
 
     @pytest.mark.asyncio
     async def test_async_api_and_context(self) -> None:
-        mgr = get_cache_manager(CacheManagerConfig(backends=[MemoryCacheConfig(name="m")] , default_backend="m"))
+        mgr = get_cache_manager(
+            CacheManagerConfig(
+                backends=[MemoryCacheConfig(name="m")], default_backend="m"
+            )
+        )
         async with mgr.ausing() as ac:
             assert isinstance(ac, AsyncCacheClient)
             await ac.aset("k", 1)
@@ -92,7 +102,11 @@ class TestCacheSyncAndAsyncAPI:
         await mgr.aclose()
 
     def test_close_specific_backend_and_manager_helpers(self) -> None:
-        mgr = get_cache_manager(CacheManagerConfig(backends=[MemoryCacheConfig(name="m")], default_backend="m"))
+        mgr = get_cache_manager(
+            CacheManagerConfig(
+                backends=[MemoryCacheConfig(name="m")], default_backend="m"
+            )
+        )
         # Manager helpers delegate correctly for specific backend
         mgr.set("x", 1, backend="m")
         assert mgr.get("x", backend="m") == 1
@@ -101,7 +115,11 @@ class TestCacheSyncAndAsyncAPI:
 
     @pytest.mark.asyncio
     async def test_aclose_specific_backend(self) -> None:
-        mgr = get_cache_manager(CacheManagerConfig(backends=[MemoryCacheConfig(name="m")], default_backend="m"))
+        mgr = get_cache_manager(
+            CacheManagerConfig(
+                backends=[MemoryCacheConfig(name="m")], default_backend="m"
+            )
+        )
         await mgr.aclose(backend="m")
 
 

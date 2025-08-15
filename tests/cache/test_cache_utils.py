@@ -4,7 +4,13 @@ import time
 
 import pytest
 
-from jinpy_utils.cache.utils import compute_expiry, default_serializer, normalize_key, now_seconds, remaining_ttl
+from jinpy_utils.cache.utils import (
+    compute_expiry,
+    default_serializer,
+    normalize_key,
+    now_seconds,
+    remaining_ttl,
+)
 
 
 class TestNormalizeKey:

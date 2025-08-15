@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Mapping, Tuple
+from typing import Any, ClassVar
 
 import redis.asyncio as aioredis
 
@@ -33,7 +34,7 @@ class BaseBackend(CacheInterface, AsyncCacheInterface):
     def __init__(
         self,
         name: str,
-        serializer: Tuple[Callable[[Any], bytes], Callable[[bytes], Any]],
+        serializer: tuple[Callable[[Any], bytes], Callable[[bytes], Any]],
         default_ttl: float | None,
     ) -> None:
         self.name = name
@@ -59,9 +60,7 @@ class BaseBackend(CacheInterface, AsyncCacheInterface):
     def get_many(self, keys: list[str]) -> dict[str, Any | None]:
         return asyncio.run(self.aget_many(keys))
 
-    def set_many(
-        self, items: Mapping[str, Any], ttl: float | None = None
-    ) -> None:  # noqa: E501
+    def set_many(self, items: Mapping[str, Any], ttl: float | None = None) -> None:
         asyncio.run(self.aset_many(items, ttl))
 
     def delete_many(self, keys: list[str]) -> None:
@@ -125,9 +124,7 @@ class MemoryCacheBackend(BaseBackend):
 
         return await self._with_lock(_get())
 
-    async def aset(
-        self, key: str, value: Any, ttl: float | None = None
-    ) -> None:  # noqa: E501
+    async def aset(self, key: str, value: Any, ttl: float | None = None) -> None:
         k = normalize_key(key)
         expiry = compute_expiry(ttl if ttl is not None else self._default_ttl)
 
@@ -209,11 +206,17 @@ class MemoryCacheBackend(BaseBackend):
         self, items: Mapping[str, Any], ttl: float | None = None
     ) -> None:
         async def _set_many():
-            expiry_default = compute_expiry(ttl if ttl is not None else self._default_ttl)
+            expiry_default = compute_expiry(
+                ttl if ttl is not None else self._default_ttl
+            )
             for k, v in items.items():
                 nk = normalize_key(k)
                 # Recompute expiry per item to reflect current time consistently
-                expiry = expiry_default if ttl is not None or self._default_ttl is not None else None
+                expiry = (
+                    expiry_default
+                    if ttl is not None or self._default_ttl is not None
+                    else None
+                )
                 if ttl is not None and ttl <= 0:
                     expiry = compute_expiry(ttl)
                 elif ttl is None and self._default_ttl is not None:
@@ -242,9 +245,7 @@ class MemoryCacheBackend(BaseBackend):
 
         await self._with_lock(_del_many())
 
-    async def aincr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def aincr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",
@@ -257,9 +258,7 @@ class MemoryCacheBackend(BaseBackend):
         await self.aset(key, new_val, ttl)
         return new_val
 
-    async def adecr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def adecr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",
@@ -309,7 +308,7 @@ class RedisCacheBackend(BaseBackend):
     def __init__(self, config: RedisCacheConfig) -> None:
         if aioredis is None:  # pragma: no cover
             raise CacheConnectionError(
-                message="redis.asyncio is not available. Install 'redis>=4.2' package.",  # noqa: E501
+                message="redis.asyncio is not available. Install 'redis>=4.2' package.",
                 backend_name=config.name,
                 backend_type=CacheBackendType.REDIS.value,
             )
@@ -322,7 +321,7 @@ class RedisCacheBackend(BaseBackend):
         self._command_timeout = config.command_timeout
         self._client: aioredis.Redis | None = None  # type: ignore
 
-    async def _client_or_connect(self) -> "aioredis.Redis":
+    async def _client_or_connect(self) -> aioredis.Redis:
         if self._client is not None:
             return self._client
         try:
@@ -352,7 +351,7 @@ class RedisCacheBackend(BaseBackend):
             if data is None:
                 return None
             if self._decode:
-                # decode_responses True means data is str -> encode before deserialize if needed # noqa: E501
+                # decode_responses True means data is str -> encode before deserialize if needed
                 raw = data.encode("utf-8")
             else:
                 raw = data
@@ -367,9 +366,7 @@ class RedisCacheBackend(BaseBackend):
                 backend_type=CacheBackendType.REDIS.value,
             ) from e
 
-    async def aset(
-        self, key: str, value: Any, ttl: float | None = None
-    ) -> None:  # noqa: E501
+    async def aset(self, key: str, value: Any, ttl: float | None = None) -> None:
         k = normalize_key(key)
         cli = await self._client_or_connect()
         try:
@@ -441,7 +438,7 @@ class RedisCacheBackend(BaseBackend):
         try:
             values = await cli.mget(nkeys)
             result: dict[str, Any | None] = {}
-            for k, v in zip(keys, values):
+            for k, v in zip(keys, values, strict=False):
                 if v is None:
                     result[k] = None
                 else:
@@ -493,9 +490,7 @@ class RedisCacheBackend(BaseBackend):
                 backend_type=CacheBackendType.REDIS.value,
             ) from e
 
-    async def aincr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def aincr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",
@@ -520,9 +515,7 @@ class RedisCacheBackend(BaseBackend):
                 backend_type=CacheBackendType.REDIS.value,
             ) from e
 
-    async def adecr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def adecr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",
@@ -636,9 +629,7 @@ class FileCacheBackend(BaseBackend):
                     backend_type=CacheBackendType.FILE.value,
                 ) from e
 
-    async def aset(
-        self, key: str, value: Any, ttl: float | None = None
-    ) -> None:  # noqa: E501
+    async def aset(self, key: str, value: Any, ttl: float | None = None) -> None:
         async with self._lock:
             p = self._path_for(normalize_key(key))
             try:
@@ -731,9 +722,7 @@ class FileCacheBackend(BaseBackend):
         for k in keys:
             await self.adelete(k)
 
-    async def aincr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def aincr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",
@@ -746,9 +735,7 @@ class FileCacheBackend(BaseBackend):
         await self.aset(key, new_val, ttl)
         return new_val
 
-    async def adecr(
-        self, key: str, amount: int = 1, ttl: float | None = None
-    ) -> int:  # noqa: E501
+    async def adecr(self, key: str, amount: int = 1, ttl: float | None = None) -> int:
         if amount < 0:
             raise CacheKeyError(
                 "Amount must be non-negative",

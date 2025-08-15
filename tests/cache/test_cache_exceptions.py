@@ -30,7 +30,9 @@ class TestCacheExceptions:
         assert d["details"]["backend_type"] == "memory"
 
     def test_configuration_error(self) -> None:
-        exc = CacheConfigurationError(message="bad cfg", config_section="backends", config_value="x")
+        exc = CacheConfigurationError(
+            message="bad cfg", config_section="backends", config_value="x"
+        )
         assert exc.error_details.details is not None
         assert exc.error_details.details["config_section"] == "backends"
 
@@ -51,7 +53,12 @@ class TestCacheExceptions:
     def test_cache_exception_none_params_and_custom_suggestions_and_merge(self) -> None:
         # None parameters should not be added to details and custom suggestions override defaults
         custom = ["one", "two"]
-        exc = CacheException(message="m", operation=None, error_type=CacheErrorType.OPERATION, suggestions=custom)
+        exc = CacheException(
+            message="m",
+            operation=None,
+            error_type=CacheErrorType.OPERATION,
+            suggestions=custom,
+        )
         assert exc.error_details.suggestions == custom
         # Merge with existing details provided
         exc2 = CacheException(
@@ -70,7 +77,9 @@ class TestCacheExceptions:
         assert exc.error_details.details["config_section"] == "s"
         assert "config_value" not in exc.error_details.details
 
-    def test_timeout_error_without_seconds_and_serialization_without_operation(self) -> None:
+    def test_timeout_error_without_seconds_and_serialization_without_operation(
+        self,
+    ) -> None:
         tmo = CacheTimeoutError("t")
         assert tmo.error_details.details is not None
         assert "timeout_seconds" not in tmo.error_details.details

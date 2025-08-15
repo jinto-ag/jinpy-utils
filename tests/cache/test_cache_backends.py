@@ -8,7 +8,6 @@ Covers:
 - CacheBackendFactory creation and error handling
 """
 
-import asyncio
 from typing import Any
 from unittest.mock import patch
 
@@ -19,9 +18,17 @@ from jinpy_utils.cache.backends import (
     FileCacheBackend,
     MemoryCacheBackend,
 )
-from jinpy_utils.cache.config import FileCacheConfig, MemoryCacheConfig, RedisCacheConfig
+from jinpy_utils.cache.config import (
+    FileCacheConfig,
+    MemoryCacheConfig,
+    RedisCacheConfig,
+)
 from jinpy_utils.cache.enums import CacheBackendType
-from jinpy_utils.cache.exceptions import CacheBackendError, CacheConnectionError, CacheKeyError
+from jinpy_utils.cache.exceptions import (
+    CacheBackendError,
+    CacheConnectionError,
+    CacheKeyError,
+)
 
 
 class TestBaseBackendSyncDelegates:
@@ -109,7 +116,8 @@ class TestMemoryCacheBackend:
         await be.aset("k1", 1)
         await be.aset("k2", 2, ttl=0)
         got = await be.aget_many(["k1", "k2"])  # k2 should be purged
-        assert got["k1"] == 1 and got["k2"] is None
+        assert got["k1"] == 1
+        assert got["k2"] is None
 
 
 class TestFileCacheBackend:
@@ -146,7 +154,9 @@ class TestFileCacheBackend:
 
     @pytest.mark.asyncio
     async def test_file_eviction_on_max_entries(self, tmp_path) -> None:
-        be = FileCacheBackend(FileCacheConfig(name="f", directory=tmp_path, max_entries=1))
+        be = FileCacheBackend(
+            FileCacheConfig(name="f", directory=tmp_path, max_entries=1)
+        )
         await be.aset("k1", 1)
         await be.aset("k2", 2)
         assert await be.aget("k1") is None
@@ -217,11 +227,11 @@ class _DummyRedisClient:
         return _Pipe()
 
     async def incrby(self, k: str, amount: int):
-        self._store[k] = (int(self._store.get(k, 0)) + amount)
+        self._store[k] = int(self._store.get(k, 0)) + amount
         return self._store[k]
 
     async def decrby(self, k: str, amount: int):
-        self._store[k] = (int(self._store.get(k, 0)) - amount)
+        self._store[k] = int(self._store.get(k, 0)) - amount
         return self._store[k]
 
     async def ttl(self, k: str):
@@ -234,10 +244,17 @@ class _DummyRedisClient:
 class TestRedisCacheBackend:
     @pytest.mark.asyncio
     async def test_success_paths_with_decode_true_and_false(self) -> None:
-        cfg_bytes = RedisCacheConfig(name="r1", url="redis://localhost:6379/0", decode_responses=False)
-        cfg_text = RedisCacheConfig(name="r2", url="redis://localhost:6379/0", decode_responses=True)
+        cfg_bytes = RedisCacheConfig(
+            name="r1", url="redis://localhost:6379/0", decode_responses=False
+        )
+        cfg_text = RedisCacheConfig(
+            name="r2", url="redis://localhost:6379/0", decode_responses=True
+        )
 
-        with patch("jinpy_utils.cache.backends.aioredis.from_url", return_value=_DummyRedisClient(False)):
+        with patch(
+            "jinpy_utils.cache.backends.aioredis.from_url",
+            return_value=_DummyRedisClient(False),
+        ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
             be = RedisCacheBackend(cfg_bytes)
@@ -256,7 +273,10 @@ class TestRedisCacheBackend:
             assert await be.ais_healthy() is True
             await be.aclose()
 
-        with patch("jinpy_utils.cache.backends.aioredis.from_url", return_value=_DummyRedisClient(True)):
+        with patch(
+            "jinpy_utils.cache.backends.aioredis.from_url",
+            return_value=_DummyRedisClient(True),
+        ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
             be2 = RedisCacheBackend(cfg_text)
@@ -313,10 +333,14 @@ class TestRedisCacheBackend:
             async def aclose(self):
                 return None
 
-        with patch("jinpy_utils.cache.backends.aioredis.from_url", return_value=Raising()):
+        with patch(
+            "jinpy_utils.cache.backends.aioredis.from_url", return_value=Raising()
+        ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
-            be = RedisCacheBackend(RedisCacheConfig(name="r", url="redis://localhost:6379/0"))
+            be = RedisCacheBackend(
+                RedisCacheConfig(name="r", url="redis://localhost:6379/0")
+            )
             with pytest.raises(CacheBackendError):
                 await be.aget("k")
             with pytest.raises(CacheBackendError):
@@ -347,11 +371,15 @@ class TestRedisCacheBackend:
         async def _bad_from_url(*_a: Any, **_k: Any):  # type: ignore
             raise RuntimeError("boom")
 
-        with patch("jinpy_utils.cache.backends.aioredis.from_url", side_effect=_bad_from_url):
+        with patch(
+            "jinpy_utils.cache.backends.aioredis.from_url", side_effect=_bad_from_url
+        ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
             with pytest.raises(CacheConnectionError):
-                be = RedisCacheBackend(RedisCacheConfig(name="r", url="redis://localhost:6379/0"))
+                be = RedisCacheBackend(
+                    RedisCacheConfig(name="r", url="redis://localhost:6379/0")
+                )
                 await be.aget("k")
 
     @pytest.mark.asyncio
@@ -372,10 +400,14 @@ class TestRedisCacheBackend:
             async def delete(self, *_a, **_k):
                 pass
 
-        with patch("jinpy_utils.cache.backends.aioredis.from_url", return_value=ScanOnly()):
+        with patch(
+            "jinpy_utils.cache.backends.aioredis.from_url", return_value=ScanOnly()
+        ):
             from jinpy_utils.cache.backends import RedisCacheBackend
 
-            be = RedisCacheBackend(RedisCacheConfig(name="r", url="redis://localhost:6379/0"))
+            be = RedisCacheBackend(
+                RedisCacheConfig(name="r", url="redis://localhost:6379/0")
+            )
             await be.aclear()
 
 
@@ -383,11 +415,17 @@ class TestBackendFactory:
     def test_factory_creates_supported_and_unsupported(self) -> None:
         m = CacheBackendFactory.create(MemoryCacheConfig(name="m"))
         assert isinstance(m, MemoryCacheBackend)
-        with patch("jinpy_utils.cache.backends.RedisCacheBackend.__init__", return_value=None):
-            r = CacheBackendFactory.create(RedisCacheConfig(name="r", url="redis://localhost:6379/0"))
+        with patch(
+            "jinpy_utils.cache.backends.RedisCacheBackend.__init__", return_value=None
+        ):
+            r = CacheBackendFactory.create(
+                RedisCacheConfig(name="r", url="redis://localhost:6379/0")
+            )
             assert r is not None
         with pytest.raises(CacheBackendError):
+
             class Dummy:  # type: ignore
                 def __init__(self) -> None:
                     self.name = "x"
+
             CacheBackendFactory.create(Dummy())  # type: ignore[arg-type]

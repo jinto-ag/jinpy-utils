@@ -36,8 +36,12 @@ class TestBackendConfigs:
 class TestManagerConfig:
     def test_unique_names_validator(self) -> None:
         with pytest.raises(ValidationError):
-            CacheManagerConfig(backends=[MemoryCacheConfig(name="x"), MemoryCacheConfig(name="x")])
+            CacheManagerConfig(
+                backends=[MemoryCacheConfig(name="x"), MemoryCacheConfig(name="x")]
+            )
 
     def test_default_backend_field(self) -> None:
-        cfg = CacheManagerConfig(backends=[MemoryCacheConfig(name="m")], default_backend="m")
+        cfg = CacheManagerConfig(
+            backends=[MemoryCacheConfig(name="m")], default_backend="m"
+        )
         assert cfg.default_backend == "m"

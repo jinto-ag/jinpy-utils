@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from collections.abc import AsyncGenerator, Generator, Mapping
 from contextlib import asynccontextmanager, contextmanager, suppress
-from typing import Any, AsyncGenerator, Generator, Mapping, Optional
+from typing import Any
 
 from .backends import BaseBackend, CacheBackendFactory
 from .config import CacheManagerConfig, MemoryCacheConfig
@@ -33,13 +34,13 @@ class CacheManager:
         v = await manager.aget("k")
     """
 
-    _instance: Optional["CacheManager"] = None
+    _instance: CacheManager | None = None
     _lock = threading.Lock()
 
     def __new__(
         cls,
-        config: Optional[CacheManagerConfig] = None,
-    ) -> "CacheManager":
+        config: CacheManagerConfig | None = None,
+    ) -> CacheManager:
         # Strict singleton: if instance exists, return it;
         # first call constructs.
         if cls._instance is None:
@@ -48,7 +49,7 @@ class CacheManager:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, config: Optional[CacheManagerConfig] = None) -> None:
+    def __init__(self, config: CacheManagerConfig | None = None) -> None:
         # Idempotent init to support singleton semantics.
         if getattr(self, "_initialized", False):
             # If new config provided later, allow reconfigure explicitly
@@ -88,7 +89,7 @@ class CacheManager:
 
         for backend_cfg in self.config.backends:
             if getattr(backend_cfg, "enabled", True):
-                backend = CacheBackendFactory.create(backend_cfg)  # noqa: E501
+                backend = CacheBackendFactory.create(backend_cfg)
                 self._backends[backend_cfg.name] = backend
 
         if not self._backends:
@@ -335,7 +336,7 @@ class CacheManager:
     def using(
         self,
         backend: str | None = None,
-    ) -> Generator["CacheClient", None, None]:
+    ) -> Generator[CacheClient, None, None]:
         """
         Context manager yielding a CacheClient bound to a selected backend.
 
@@ -354,7 +355,7 @@ class CacheManager:
     @asynccontextmanager
     async def ausing(
         self, backend: str | None = None
-    ) -> AsyncGenerator["AsyncCacheClient", None]:
+    ) -> AsyncGenerator[AsyncCacheClient, None]:
         """
         Async context manager yielding an AsyncCacheClient
         bound to a selected backend.
@@ -525,8 +526,8 @@ class Cache:
 
     def __init__(
         self,
-        backend: Optional[str] = None,
-        manager: Optional[CacheManager] = None,
+        backend: str | None = None,
+        manager: CacheManager | None = None,
     ) -> None:
         self._manager = manager or CacheManager()
         self._backend = backend
@@ -654,7 +655,7 @@ class Cache:
 # Convenience functions mirroring the logger’s public helpers
 
 
-def get_cache(backend: Optional[str] = None) -> Cache:
+def get_cache(backend: str | None = None) -> Cache:
     """
     Return a Cache facade bound to the given backend (or default).
     """
@@ -662,7 +663,7 @@ def get_cache(backend: Optional[str] = None) -> Cache:
 
 
 def get_cache_manager(
-    config: Optional[CacheManagerConfig] = None,
+    config: CacheManagerConfig | None = None,
 ) -> CacheManager:
     """
     Return the singleton CacheManager,

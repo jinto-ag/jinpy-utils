@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import pickle
 import time
-from typing import Any, Callable, Literal
-
+from collections.abc import Callable
+from typing import Any, Literal
 
 SerializerType = Literal["json", "pickle", "str", "bytes"]
 

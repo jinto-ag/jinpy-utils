@@ -77,7 +77,7 @@ class FileCacheConfig(BaseCacheBackendConfig):
 class CacheManagerConfig(BaseModel):
     """Global cache manager configuration."""
 
-    backends: list[MemoryCacheConfig | RedisCacheConfig | FileCacheConfig] = Field(  # noqa: E501
+    backends: list[MemoryCacheConfig | RedisCacheConfig | FileCacheConfig] = Field(
         default_factory=list
     )
     enable_singleton: bool = Field(default=True)
